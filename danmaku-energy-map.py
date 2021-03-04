@@ -208,10 +208,10 @@ if __name__ == '__main__':
 
                 other_he_time_list = [all_timestamps[time_id] for time_id in he_pairs[0]]
 
-                text = f"全场最高能：{convert_time(highest_time)}\n\n其他高能："
+                text = f"全场最高能：{convert_time(highest_time - 45)}\n\n其他高能："
 
                 for other_he_time in other_he_time_list:
-                    text += f"\n {convert_time(other_he_time)}"
+                    text += f"\n {convert_time(other_he_time - 45)}"
             text += "\n"
             text = segment_text(text)
             with open(args.he_map, "w") as file:
