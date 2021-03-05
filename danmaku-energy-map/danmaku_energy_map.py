@@ -123,22 +123,30 @@ def convert_time(secs):
     return f"{minutes}:{reminder_secs:02d}"
 
 
-def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points):
-    plt.figure(figsize=(heat_time[0][-1] / 1000, 4))
+def draw_he_line(fig: plt.Figure, heat_time, heat_value_gaussian, heat_value_gaussian2, name='all', no_average=False):
+    fig.gca().plot(heat_time[0], heat_value_gaussian, label=f"{name}")
+    if not no_average:
+        fig.gca().plot(heat_time[0], heat_value_gaussian2, label=f"{name} average")
 
-    t_x = heat_time[0][::1000]
 
-    t = [convert_time(time) for time in t_x]
-
-    plt.plot(heat_time[0], heat_value_gaussian)
-    plt.plot(heat_time[0], heat_value_gaussian2)
-
+def draw_he_annonate(fig: plt.Figure, heat_time, he_points):
     for i in range(len(he_points[0])):
         time = heat_time[0][he_points[0][i]] - 45
         time_name = convert_time(time)
         height = he_points[1][i]
-        plt.annotate(time_name, xy=(time, height), xytext=(time, height + 5),
-                     arrowprops=dict(facecolor='black', shrink=0.05))
+        fig.gca().annotate(time_name, xy=(time, height), xytext=(time, height + 5),
+                           arrowprops=dict(facecolor='black', shrink=0.05))
+
+
+def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points):
+    fig = plt.figure(figsize=(heat_time[0][-1] / 1000, 4))
+
+    draw_he_line(fig, heat_time, heat_value_gaussian, heat_value_gaussian2)
+    draw_he_annonate(fig, heat_time, he_points)
+
+    t_x = heat_time[0][::1000]
+
+    t = [convert_time(time) for time in t_x]
 
     plt.xticks(t_x, t)
 
