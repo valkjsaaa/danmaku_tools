@@ -5,7 +5,8 @@ from collections import deque
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.filters import gaussian_filter, convolve
+from scipy.stats import norm, halfnorm
 
 parser = argparse.ArgumentParser(description='Process bilibili Danmaku')
 parser.add_argument('danmaku', type=str, help='path to the danmaku file')
@@ -49,6 +50,11 @@ def get_value(child: ET.Element):
         print(f"error getting value from {child}")
         return 0
 
+def half_gaussian_filter(value, sigma):
+    space = np.linspace(-4, 4, sigma * 8)
+    neg_space = np.linspace(4 * 10, -4 * 10, sigma * 8)
+    kernel = (halfnorm.pdf(space) + halfnorm.pdf(neg_space)) / sigma
+    return convolve(value, kernel)
 
 def get_heat_time(all_children):
     interval = 2
@@ -87,8 +93,8 @@ def get_heat_time(all_children):
         center += 1
 
     heat_value = heat_time[1]
-    heat_value_gaussian = gaussian_filter(heat_value, sigma=50)
-    heat_value_gaussian2 = gaussian_filter(heat_value, sigma=1000) * 1.1
+    heat_value_gaussian = half_gaussian_filter(heat_value, sigma=50)
+    heat_value_gaussian2 = half_gaussian_filter(heat_value, sigma=1000) * 1.1
 
     he_points = [[], []]
     cur_highest = -1
@@ -124,17 +130,17 @@ def convert_time(secs):
 
 
 def draw_he_line(fig: plt.Figure, heat_time, heat_value_gaussian, heat_value_gaussian2, name='all', no_average=False):
-    fig.gca().plot(heat_time[0], heat_value_gaussian, label=f"{name}")
+    fig.gca().plot(heat_time[0], np.log(heat_value_gaussian), label=f"{name}")
     if not no_average:
-        fig.gca().plot(heat_time[0], heat_value_gaussian2, label=f"{name} average")
+        fig.gca().plot(heat_time[0], np.log(heat_value_gaussian2), label=f"{name} average")
 
 
-def draw_he_annonate(fig: plt.Figure, heat_time, he_points):
+def draw_he_annotate(fig: plt.Figure, heat_time, he_points):
     for i in range(len(he_points[0])):
         time = heat_time[0][he_points[0][i]] - 45
         time_name = convert_time(time)
         height = he_points[1][i]
-        fig.gca().annotate(time_name, xy=(time, height), xytext=(time, height + 5),
+        fig.gca().annotate(time_name, xy=(time, np.log(height)), xytext=(time, height + 5),
                            arrowprops=dict(facecolor='black', shrink=0.05))
 
 
@@ -142,7 +148,7 @@ def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_p
     fig = plt.figure(figsize=(heat_time[0][-1] / 1000, 4))
 
     draw_he_line(fig, heat_time, heat_value_gaussian, heat_value_gaussian2)
-    draw_he_annonate(fig, heat_time, he_points)
+    draw_he_annotate(fig, heat_time, he_points)
 
     t_x = heat_time[0][::1000]
 
@@ -188,14 +194,15 @@ if __name__ == '__main__':
                 price = sc_chat_element.attrib['price']
                 raw_message = json.loads(sc_chat_element.attrib['raw'])
                 message = raw_message["message"].replace('\n', '\t')
+                user = raw_message["user_info"]['uname']
                 time = int(float(sc_chat_element.attrib['ts']))
-                sc_tuple += [(time, price, message)]
+                sc_tuple += [(time, price, message, user)]
             except:
                 print(f"superchat processing error {sc_chat_element}")
 
         sc_text = "醒目留言列表："
-        for time, price, message in sc_tuple:
-            sc_text += f"\n {convert_time(time)} ¥{price}: {message}"
+        for time, price, message, user in sc_tuple:
+            sc_text += f"\n {convert_time(time)} ¥{price} {user}: {message}"
         sc_text += "\n"
         sc_text = segment_text(sc_text)
         with open(args.sc_list, "w") as file:

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from danmaku_energy_map import read_danmaku_file, convert_time, segment_text, get_heat_time, draw_he_line, \
-    draw_he_annonate
+    draw_he_annotate
 
 parser = argparse.ArgumentParser(description='Get gift analytics for BiliBili Live XML')
 parser.add_argument('danmaku', type=str, help='path to the danmaku file')
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
         part_xml_list = [element for element in xml_list if element.tag in ['sc', 'gift']]
         heat_time, heat_value_gaussian, heat_value_gaussian2, he_points = get_heat_time(part_xml_list)
-        draw_he_annonate(fig, heat_time, he_points)
+        draw_he_annotate(fig, heat_time, he_points)
 
         t_x = heat_time[0][::1000]
 
