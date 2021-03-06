@@ -1,3 +1,4 @@
 matplotlib~=3.3.3
 numpy~=1.18.5
 scipy~=1.5.4
+python-dateutil~=2.8.1
