@@ -22,17 +22,17 @@ if __name__ == '__main__':
 
         fig = plt.figure(figsize=(heat_time[0][-1] / 1000, 4))
 
-        draw_he_line(fig, heat_time, heat_value_gaussian, heat_value_gaussian2)
+        draw_he_line(fig.gca(), heat_time, heat_value_gaussian, heat_value_gaussian2)
 
         for name, name_chn in {'d': "danmaku", 'sc': "superchat", 'gift': "gift"}.items():
             part_xml_list = [element for element in xml_list if element.tag == name]
             heat_time, heat_value_gaussian, heat_value_gaussian2, _ = get_heat_time(part_xml_list)
             if name in ['sc', 'gift']:
-                draw_he_line(fig, heat_time, heat_value_gaussian * 10, heat_value_gaussian2 * 10, name=name_chn)
+                draw_he_line(fig.gca(), heat_time, heat_value_gaussian * 10, heat_value_gaussian2 * 10, name=name_chn)
 
         part_xml_list = [element for element in xml_list if element.tag in ['sc', 'gift']]
         heat_time, heat_value_gaussian, heat_value_gaussian2, he_points = get_heat_time(part_xml_list)
-        draw_he_annotate(fig, heat_time, he_points)
+        draw_he_annotate(fig.gca(), heat_time, he_points)
 
         t_x = heat_time[0][::1000]
 
