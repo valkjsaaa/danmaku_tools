@@ -301,12 +301,12 @@ if __name__ == '__main__':
             he_pairs = heat_values[3]
             all_timestamps = heat_values[0][0]
             if len(he_pairs[0]) == 0:
-                text = "0:00"
+                text = "0"
             else:
                 # noinspection PyTypeChecker
                 highest_time_id = he_pairs[0][np.argmax(he_pairs[1])]
                 highest_time = all_timestamps[highest_time_id]
-                text = convert_time(highest_time)
+                text = str(highest_time)
             with open(args.he_time, "w") as file:
                 file.write(text)
 
