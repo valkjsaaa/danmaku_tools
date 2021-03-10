@@ -13,6 +13,8 @@ parser.add_argument('danmaku', type=str, help='path to the danmaku file')
 parser.add_argument('--graph', type=str, default=None, help='output graph path, leave empty if not needed')
 parser.add_argument('--he_map', type=str, default=None, help='output high density timestamp, leave empty if not needed')
 parser.add_argument('--sc_list', type=str, default=None, help='output super chats, leave empty if not needed')
+parser.add_argument('--he_time', type=str, default=None, help='output highest density timestamp, leave empty if not '
+                                                              'needed')
 
 
 def read_danmaku_file(file_path):
@@ -271,7 +273,7 @@ if __name__ == '__main__':
         with open(args.sc_list, "w") as file:
             file.write(sc_text)
 
-    if args.he_map is not None or args.graph is not None:
+    if args.he_map is not None or args.graph is not None or args.he_time is not None:
         heat_values = get_heat_time(xml_list)
 
         if args.he_map is not None:
@@ -293,6 +295,19 @@ if __name__ == '__main__':
             text += "\n"
             text = segment_text(text)
             with open(args.he_map, "w") as file:
+                file.write(text)
+
+        if args.he_time is not None:
+            he_pairs = heat_values[3]
+            all_timestamps = heat_values[0][0]
+            if len(he_pairs[0]) == 0:
+                text = "0:00"
+            else:
+                # noinspection PyTypeChecker
+                highest_time_id = he_pairs[0][np.argmax(he_pairs[1])]
+                highest_time = all_timestamps[highest_time_id]
+                text = convert_time(highest_time)
+            with open(args.he_time, "w") as file:
                 file.write(text)
 
         if args.graph is not None:
