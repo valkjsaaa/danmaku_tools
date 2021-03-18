@@ -1,5 +1,8 @@
 import argparse
 import json
+from datetime import timedelta
+
+import srt
 import xml.etree.ElementTree as ET
 from collections import deque
 
@@ -13,15 +16,16 @@ parser.add_argument('danmaku', type=str, help='path to the danmaku file')
 parser.add_argument('--graph', type=str, default=None, help='output graph path, leave empty if not needed')
 parser.add_argument('--he_map', type=str, default=None, help='output high density timestamp, leave empty if not needed')
 parser.add_argument('--sc_list', type=str, default=None, help='output super chats, leave empty if not needed')
+parser.add_argument('--sc_srt', type=str, default=None, help='output super chats srt, leave empty if not needed')
 parser.add_argument('--he_time', type=str, default=None, help='output highest density timestamp, leave empty if not '
                                                               'needed')
 
 
-def read_danmaku_file(file_path):
+def read_danmaku_file(file_path, guard=False):
     tree = ET.parse(file_path)
     root = tree.getroot()
 
-    all_children = [child for child in root if child.tag in ['gift', 'sc', 'd']]
+    all_children = [child for child in root if child.tag in ['gift', 'sc', 'd'] + (['guard'] if guard else [])]
     return all_children
 
 
@@ -48,6 +52,9 @@ def get_value(child: ET.Element):
         elif child.tag == 'sc':
             raw_data = json.loads(child.attrib['raw'])
             return raw_data['price'] / 10
+        elif child.tag == 'guard':
+            raw_data = json.loads(child.attrib['raw'])
+            return raw_data['price'] / 1000 / 10
     except:
         print(f"error getting value from {child}")
         return 0
@@ -104,28 +111,35 @@ def get_heat_time(all_children):
     he_points = [[], []]
     cur_highest = -1
     highest_idx = -1
+    he_start = -1
+    he_range = []
 
     for i in range(len(heat_value_gaussian)):
         if highest_idx != -1:
+            assert he_start != -1
             if heat_value_gaussian[i] < heat_value_gaussian2[i]:
                 he_points[0] += [highest_idx]
                 he_points[1] += [cur_highest]
+                he_range += [(he_start, i)]
                 highest_idx = -1
+                he_start = -1
             else:
                 if heat_value_gaussian[i] > cur_highest:
                     cur_highest = heat_value_gaussian[i]
                     highest_idx = i
         else:
+            assert he_start == -1
             if heat_value_gaussian[i] > heat_value_gaussian2[i]:
                 cur_highest = heat_value_gaussian[i]
                 highest_idx = i
+                he_start = i
 
     # Usually the HE point at the end of a live stream is just to say goodbye
     # if highest_idx != -1:
     #     he_points[0] += [highest_idx]
     #     he_points[1] += [cur_highest]
 
-    return heat_time, heat_value_gaussian / np.sqrt(heat_value_gaussian2), np.sqrt(heat_value_gaussian2), he_points
+    return heat_time, heat_value_gaussian / np.sqrt(heat_value_gaussian2), np.sqrt(heat_value_gaussian2), he_points, he_range
 
 
 def convert_time(secs):
@@ -212,7 +226,7 @@ def draw_he_annotate_line(ax: plt.Axes, current_time: float, heat_time, he_point
         ax.axline((time, height), (time, height - 1), color='#cc79a7c0')
 
 
-def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points, current_time=-1):
+def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points, he_range, current_time=-1):
     fig = plt.figure(figsize=(16, 1), frameon=False, dpi=60)
     ax = fig.add_axes((0, 0, 1, 1))
     draw_he_area(ax, current_time, heat_time, heat_value_gaussian, heat_value_gaussian2)
@@ -246,11 +260,18 @@ def segment_text(text):
     return new_text
 
 
+def get_danmaku_from_range(all_children, he_range):
+    start, end = he_range
+    start += 45
+    end += 45
+    return [item.text for item in all_children if item.tag == 'd' and start <= get_time(item) <= end]
+
+
 if __name__ == '__main__':
     args = parser.parse_args()
     xml_list = read_danmaku_file(args.danmaku)
 
-    if args.sc_list is not None:
+    if args.sc_list is not None or args.sc_srt is not None:
         sc_chats = [element for element in xml_list if element.tag == 'sc']
 
         sc_tuple = []
@@ -260,18 +281,72 @@ if __name__ == '__main__':
                 raw_message = json.loads(sc_chat_element.attrib['raw'])
                 message = raw_message["message"].replace('\n', '\t')
                 user = raw_message["user_info"]['uname']
-                time = int(float(sc_chat_element.attrib['ts']))
-                sc_tuple += [(time, price, message, user)]
+                time = float(sc_chat_element.attrib['ts'])
+                duration = raw_message['time']
+                sc_tuple += [(time, price, message, user, duration)]
             except:
                 print(f"superchat processing error {sc_chat_element}")
 
-        sc_text = "醒目留言列表："
-        for time, price, message, user in sc_tuple:
-            sc_text += f"\n {convert_time(time)} ¥{price} {user}: {message}"
-        sc_text += "\n"
-        sc_text = segment_text(sc_text)
-        with open(args.sc_list, "w") as file:
-            file.write(sc_text)
+        if args.sc_list is not None:
+            if len(sc_tuple) != 0:
+                sc_text = "醒目留言列表："
+                for time, price, message, user, _ in sc_tuple:
+                    sc_text += f"\n {convert_time(int(time))} ¥{price} {user}: {message}"
+                sc_text += "\n"
+                sc_text = segment_text(sc_text)
+            else:
+                sc_text = "没有醒目留言..."
+            with open(args.sc_list, "w") as file:
+                file.write(sc_text)
+        if args.sc_srt is not None:
+            active_sc = []
+            subtitles = []
+            cur_time = 0
+
+            def display_sc(start, end, sc_list):
+                display_sorted_sc = sorted(sc_list, key=lambda x: (-int(x[2]), x[1]))
+                content = "\n".join([sc[3] for sc in display_sorted_sc])
+                LIMIT=100
+                if len(content) >= LIMIT:
+                    content = content[:LIMIT-2] + "…"
+                return srt.Subtitle(
+                    index=0,
+                    start=timedelta(seconds=start),
+                    end=timedelta(seconds=end),
+                    content=content
+                )
+
+            def flush_sc(start_time: float, end_time: float):
+                current_sc = sorted(active_sc, key=lambda x: x[1])
+                subtitle_list = []
+                while True:
+                    if len(current_sc) == 0:
+                        break
+                    if current_sc[0][1] < end_time:
+                        if current_sc[0][1] - start_time > 1:
+                            subtitle_list += [display_sc(start_time, current_sc[0][1], current_sc)]
+                            start_time = current_sc[0][1]
+                    else:
+                        break
+                    current_sc.pop(0)
+                if end_time - start_time > 1:
+                    subtitle_list += [display_sc(start_time, end_time, current_sc)]
+                    start_time = end_time
+                return current_sc, subtitle_list, start_time
+
+            for time, price, message, user, duration in sc_tuple:
+                start = time
+                end = time + duration * 0.6
+                content = f"¥{price} {user}: {message}".replace("绑架", "**")
+                new_sc, new_subtitles, cur_time = flush_sc(start_time=cur_time, end_time=start)  # Flush all the previous SCs
+                active_sc = new_sc + [(start, end, price, content)]
+                subtitles += new_subtitles
+            if len(active_sc):
+                end_time = max([sc[1] for sc in active_sc])
+                _, new_subtitles, _ = flush_sc(start_time=cur_time, end_time=end_time)
+                subtitles += new_subtitles
+            with open(args.sc_srt, "w") as file:
+                file.write(srt.compose(subtitles))
 
     if args.he_map is not None or args.graph is not None or args.he_time is not None:
         heat_values = get_heat_time(xml_list)
