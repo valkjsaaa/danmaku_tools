@@ -304,7 +304,7 @@ if __name__ == '__main__':
             cur_time = 0
 
             def display_sc(start, end, sc_list):
-                display_sorted_sc = sorted(sc_list, key=lambda x: (-int(x[2]), x[1]))
+                display_sorted_sc = sorted(sc_list, key=lambda x: (x[1], -int(x[2])))
                 content = "\n".join([sc[3] for sc in display_sorted_sc])
                 LIMIT=100
                 if len(content) >= LIMIT:
