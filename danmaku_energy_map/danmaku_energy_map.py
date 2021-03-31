@@ -1,5 +1,6 @@
 import argparse
 import json
+import traceback
 from datetime import timedelta
 
 import srt
@@ -11,6 +12,9 @@ import numpy as np
 from scipy.ndimage.filters import convolve
 from scipy.stats import halfnorm
 
+import bilibili_api
+from tqdm import tqdm
+
 parser = argparse.ArgumentParser(description='Process bilibili Danmaku')
 parser.add_argument('danmaku', type=str, help='path to the danmaku file')
 parser.add_argument('--graph', type=str, default=None, help='output graph path, leave empty if not needed')
@@ -19,6 +23,8 @@ parser.add_argument('--sc_list', type=str, default=None, help='output super chat
 parser.add_argument('--sc_srt', type=str, default=None, help='output super chats srt, leave empty if not needed')
 parser.add_argument('--he_time', type=str, default=None, help='output highest density timestamp, leave empty if not '
                                                               'needed')
+parser.add_argument('--user_xml', type=str, default=None, help='output danmaku xml with username, leave empty if not '
+                                                               'needed')
 
 
 def read_danmaku_file(file_path, guard=False):
@@ -139,7 +145,8 @@ def get_heat_time(all_children):
     #     he_points[0] += [highest_idx]
     #     he_points[1] += [cur_highest]
 
-    return heat_time, heat_value_gaussian / np.sqrt(heat_value_gaussian2), np.sqrt(heat_value_gaussian2), he_points, he_range
+    return heat_time, heat_value_gaussian / np.sqrt(heat_value_gaussian2), np.sqrt(
+        heat_value_gaussian2), he_points, he_range
 
 
 def convert_time(secs):
@@ -303,18 +310,20 @@ if __name__ == '__main__':
             subtitles = []
             cur_time = 0
 
+
             def display_sc(start, end, sc_list):
                 display_sorted_sc = sorted(sc_list, key=lambda x: (-float(x[0]), -int(x[2])))
                 content = "\n".join([sc[3] for sc in display_sorted_sc])
-                LIMIT=100
+                LIMIT = 100
                 if len(content) >= LIMIT:
-                    content = content[:LIMIT-2] + "…"
+                    content = content[:LIMIT - 2] + "…"
                 return srt.Subtitle(
                     index=0,
                     start=timedelta(seconds=start),
                     end=timedelta(seconds=end),
                     content=content
                 )
+
 
             def flush_sc(start_time: float, end_time: float):
                 current_sc = sorted(active_sc, key=lambda x: x[1])
@@ -334,11 +343,13 @@ if __name__ == '__main__':
                     start_time = end_time
                 return current_sc, subtitle_list, start_time
 
+
             for time, price, message, user, duration in sc_tuple:
                 start = time
                 end = time + duration * 0.6
                 content = f"¥{price} {user}: {message}".replace("绑架", "**")
-                new_sc, new_subtitles, cur_time = flush_sc(start_time=cur_time, end_time=start)  # Flush all the previous SCs
+                new_sc, new_subtitles, cur_time = flush_sc(start_time=cur_time,
+                                                           end_time=start)  # Flush all the previous SCs
                 active_sc = new_sc + [(start, end, price, content)]
                 subtitles += new_subtitles
             if len(active_sc):
@@ -387,3 +398,36 @@ if __name__ == '__main__':
 
         if args.graph is not None:
             draw_he(args.graph, *heat_values)
+
+    if args.user_xml is not None:
+        tree = ET.parse(args.danmaku)
+        user_cache = {}
+
+
+        def get_user_follower(user_id):
+            if user_id in user_cache:
+                return user_cache[user_id]
+            else:
+                user_follower = bilibili_api.user.get_relation_info(user_id)['follower']
+                user_cache[user_id] = user_follower
+                return user_follower
+
+
+        for child in tqdm(tree.getroot()):
+            try:
+                if child.tag == 'd':
+                    user_name = child.attrib['user']
+                    raw_data = json.loads(child.attrib['raw'])
+                    user_id = raw_data[2][0]
+                    # follower = get_user_follower(user_id)
+                    follower = 0
+                    user_level = raw_data[3][0] if len(raw_data[3]) > 0 else 0
+                    user_boat = raw_data[7]
+                    display_username = follower >= 1000 or user_level > 25 or user_boat >= 2
+                    if display_username:
+                        print(user_name)
+                        child.text = f"@{user_name}:" + child.text
+            except Exception as e:
+                print(e)
+                print(traceback.format_exc())
+        tree.write(args.user_xml, encoding='UTF-8', xml_declaration=True)

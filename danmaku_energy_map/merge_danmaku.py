@@ -1,9 +1,11 @@
 import argparse
+import subprocess
 import xml.etree.ElementTree as ET
 from dateutil.parser import parse
 
 parser = argparse.ArgumentParser(description='Merge BiliLiveReocrder XML')
 parser.add_argument('xml_files', type=str, nargs='+', help='path to the danmaku file')
+parser.add_argument('--video_time', action='store_true', help='use video length as the duration of the file')
 parser.add_argument('--output', type=str, default=None, help='output path for the output XML', required=True)
 
 def get_root_time(root_xml):
@@ -38,11 +40,26 @@ if __name__ == '__main__':
 
     tree = ET.parse(args.xml_files[0])
     root = tree.getroot()
+    new_root_offset = 0
     root_time = get_root_time(root)
+    all_flv = ""
 
     for i in range(len(args.xml_files) - 1):
         new_root = ET.parse(args.xml_files[i + 1]).getroot()
-        new_root_offset = (get_root_time(new_root) - root_time).total_seconds()
+        if not args.video_time:
+            new_root_offset = (get_root_time(new_root) - root_time).total_seconds()
+        else:
+            prev_xml_path = args.xml_files[i]
+            base_file_path = prev_xml_path.rpartition('.')[0]
+            flv_file_path = base_file_path + '.fixed.mp4'
+            total_seconds_str = subprocess.check_output(
+                f'ffprobe -v error -show_entries format=duration '
+                f'-of default=noprint_wrappers=1:nokey=1 "{flv_file_path}"', shell=True
+            )
+            all_flv += flv_file_path + "\n"
+            new_root_offset += float(total_seconds_str)
         add_root(root, new_root, new_root_offset)
 
     tree.write(args.output, encoding='UTF-8', xml_declaration=True)
+    if args.video_time:
+        print(all_flv)
