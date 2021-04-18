@@ -1,6 +1,6 @@
 import argparse
-import subprocess
 import xml.etree.ElementTree as ET
+
 from dateutil.parser import parse
 
 parser = argparse.ArgumentParser(description='Merge BiliLiveReocrder XML')
