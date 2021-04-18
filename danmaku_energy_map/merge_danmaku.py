@@ -8,6 +8,7 @@ parser.add_argument('xml_files', type=str, nargs='+', help='path to the danmaku 
 parser.add_argument('--video_time', type=str, default="", help='use video length as the duration of the file')
 parser.add_argument('--output', type=str, default=None, help='output path for the output XML', required=True)
 
+
 def get_root_time(root_xml):
     record_info = root_xml.findall('BililiveRecorderRecordInfo')[0]
     record_start_time_str = record_info.attrib['start_time']
