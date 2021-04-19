@@ -50,18 +50,28 @@ python3 -m danmaku_tools.cut_danmaku --start_time 123.45 --end_time 567.89 video
 ffmpeg -ss 123.45 -to 567.89 -i video_input.flv video_output.flv
 ```
 
-#### 分析
+#### 分析流水
 
 ```bash
-danmaku_energy_map.py video.xml `# 输入 XML 文件` \
+python3 -m danmaku_tools.analyze_danmaku video.xml
+```
+输出如下：
+```
+弹幕：46541条
+醒目留言：15294.0元
+礼物：7366.440000000309元
+大航海：10116.0元
+大航海类别：{'舰长': 41, '提督': 1}
+总流水 32776.44000000031元
+```
+
+#### 分析高能
+
+```bash
+python3 -m danmaku_tools.danmaku_energy_map video.xml `# 输入 XML 文件` \
   --graph video.he.png `# 高能进度条 png` \
   --he_map he_list.txt `# 高能列表` \
   --sc_list sc_list.txt `# 醒目留言列表` \
   --sc_srt sc.srt `# 醒目留言字幕` \
   --he_time he_time.txt `# 最高能时间点`
 ```
-
-
-
-
-

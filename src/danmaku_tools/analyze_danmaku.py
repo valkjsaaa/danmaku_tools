@@ -1,10 +1,9 @@
+#!/usr/bin/env python
+
 import argparse
 import json
-import numpy as np
-import matplotlib.pyplot as plt
 
-from danmaku_energy_map import read_danmaku_file, draw_he_line, get_heat_time, draw_he_annotate, \
-    convert_time, get_value
+from danmaku_tools.danmaku_tools import read_danmaku_file, get_value
 
 parser = argparse.ArgumentParser(description='Get gift analytics for BiliBili Live XML')
 parser.add_argument('danmaku', type=str, help='path to the danmaku file')
@@ -43,6 +42,7 @@ if __name__ == '__main__':
     print(f"礼物：{total_gift}元")
     print(f"大航海：{total_guard}元")
     print(f"大航海类别：{guard_map}")
+    print(f"总流水 {total_gift + total_guard + total_sc}元")
 
 
 
