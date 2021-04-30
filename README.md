@@ -73,5 +73,6 @@ python3 -m danmaku_tools.danmaku_energy_map video.xml `# 输入 XML 文件` \
   --he_map he_list.txt `# 高能列表` \
   --sc_list sc_list.txt `# 醒目留言列表` \
   --sc_srt sc.srt `# 醒目留言字幕` \
-  --he_time he_time.txt `# 最高能时间点`
+  --he_time he_time.txt `# 最高能时间点` \
+  --he_range he_range.txt `# 最高能时间段`
 ```
