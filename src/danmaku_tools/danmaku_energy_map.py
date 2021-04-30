@@ -3,6 +3,7 @@
 import argparse
 import json
 import traceback
+import random
 from datetime import timedelta
 
 import srt
@@ -17,6 +18,7 @@ from scipy.stats import halfnorm
 from danmaku_tools.danmaku_tools import read_danmaku_file, get_value, get_time
 
 import bilibili_api
+from textrank4zh import TextRank4Sentence
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='Process bilibili Danmaku')
@@ -27,6 +29,7 @@ parser.add_argument('--sc_list', type=str, default=None, help='output super chat
 parser.add_argument('--sc_srt', type=str, default=None, help='output super chats srt, leave empty if not needed')
 parser.add_argument('--he_time', type=str, default=None, help='output highest density timestamp, leave empty if not '
                                                               'needed')
+parser.add_argument('--he_range', type=str, default=None, help='output he_range, leave empty if not needed')
 parser.add_argument('--user_xml', type=str, default=None, help='output danmaku xml with username, leave empty if not '
                                                                'needed')
 
@@ -324,25 +327,61 @@ if __name__ == '__main__':
             with open(args.sc_srt, "w") as file:
                 file.write(srt.compose(subtitles))
 
-    if args.he_map is not None or args.graph is not None or args.he_time is not None:
+    if args.he_map is not None or args.graph is not None or args.he_time is not None or args.he_range:
         heat_values = get_heat_time(xml_list)
+
+        if args.he_range is not None:
+            with open(args.he_range, "w") as file:
+                json.dump(heat_values[4], file)
 
         if args.he_map is not None:
             he_pairs = heat_values[3]
             all_timestamps = heat_values[0][0]
+
+            heat_comments = []
+            xml_list_iter = iter(xml_list)
+            tr4s = TextRank4Sentence()
+            for start, end in tqdm(heat_values[4]):
+                comment_list = []
+                while True:
+                    try:
+                        element = next(xml_list_iter)
+                    except StopIteration:
+                        break
+                    if get_time(element) <= start + 45:
+                        continue
+                    if get_time(element) > end + 45:
+                        break
+                    if element.tag == 'd':
+                        text = element.text
+                        if not text.replace(" ", "").replace("哈", "") == "":
+                            comment_list += [text]
+                print(len(comment_list))
+                if len(comment_list) > 1000:
+                    comment_list = random.sample(comment_list, 1000)
+                tr4s.analyze("\n".join(comment_list), lower=True, source='no_filter')
+                key_sentences = tr4s.get_key_sentences(1)
+                if len(key_sentences) > 0:
+                    top_sentence = key_sentences[0]['sentence']
+                else:
+                    top_sentence = ""
+                heat_comments += [top_sentence]
+
             if len(he_pairs[0]) == 0:
                 text = "没有高能..."
             else:
                 # noinspection PyTypeChecker
-                highest_time_id = he_pairs[0][np.argmax(he_pairs[1])]
+                highest_id = np.argmax(he_pairs[1])
+                highest_time_id = he_pairs[0][highest_id]
                 highest_time = all_timestamps[highest_time_id]
+                highest_sentence = heat_comments[highest_id]
 
                 other_he_time_list = [all_timestamps[time_id] for time_id in he_pairs[0]]
 
-                text = f"全场最高能：{convert_time(highest_time)}\n\n其他高能："
+                text = f"全场最高能：{convert_time(highest_time)}\t{highest_sentence}\n\n其他高能："
 
-                for other_he_time in other_he_time_list:
-                    text += f"\n {convert_time(other_he_time)}"
+                for i, (start_he_time, end_he_time) in enumerate(heat_values[4]):
+                    text += f"\n {convert_time(start_he_time)} - {convert_time(end_he_time)}\t{heat_comments[i]}"
             text += "\n"
             text = segment_text(text)
             with open(args.he_map, "w") as file:
