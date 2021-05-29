@@ -354,7 +354,7 @@ if __name__ == '__main__':
                         break
                     if element.tag == 'd':
                         text = element.text
-                        if not text.replace(" ", "").replace("哈", "") == "":
+                        if text is not None and not text.replace(" ", "").replace("哈", "") == "":
                             comment_list += [text]
                 print(len(comment_list))
                 if len(comment_list) > 1000:
