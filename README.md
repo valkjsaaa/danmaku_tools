@@ -24,8 +24,8 @@ python3 -m danmaku_tools.merge_danmaku video_1.xml video_2.xml video_3.xml --vid
 
 经常和类似这样的视频合并命令同时使用
 ```bash
-echo "file video_1.flv\n file video_2.flv" > video.input.txt
-ffmpeg -f concat -safe 0 -i video_input.txt video_combined.flv
+echo "file video_1.flv\n file video_2.flv" > video_input.txt
+ffmpeg -f concat -safe 0 -i video_input.txt -c copy video_combined.flv
 ```
 
 根据 XML 开始时间合并 XML
