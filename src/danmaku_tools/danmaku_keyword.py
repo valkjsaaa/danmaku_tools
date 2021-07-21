@@ -64,8 +64,8 @@ def preprocess_danmaku(danmaku):
     danmaku = re.sub(r'^哈哈哈+$', '哈哈哈', danmaku)
     danmaku = re.sub(r'^？+$', '？', danmaku)
     danmaku = re.sub(r'^\?+$', '？', danmaku)
-    danmaku = re.sub(r'^(?:☀️)+$', '☀', danmaku)
-    danmaku = re.sub(r'^(?:☀)+$', '☀', danmaku)
+    danmaku = re.sub(r'^(?:☀️)+$', '☀️', danmaku)
+    danmaku = re.sub(r'^(?:☀)+$', '☀️', danmaku)
    
     return danmaku
 
