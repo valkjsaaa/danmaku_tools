@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+####
+#
+#   Update on 20220219 by @kumafans (Bilibili ID: OneTwoInfinity)
+#       - Use IDF-weighted keyword value to rate danmaku
+#       - Add markers for Super Chat
+#       - Eliminated the empirical 45 second offset in most decisions
+#
+####
+
 import argparse
 import json
 import traceback
@@ -17,6 +26,12 @@ from scipy.stats import halfnorm
 
 from danmaku_tools.danmaku_tools import read_danmaku_file, get_value, get_time
 
+import jieba
+from collections import Counter
+import math
+import re
+import operator
+
 import bilibili_api
 from textrank4zh import TextRank4Sentence
 from tqdm import tqdm
@@ -33,6 +48,114 @@ parser.add_argument('--he_range', type=str, default=None, help='output he_range,
 parser.add_argument('--user_xml', type=str, default=None, help='output danmaku xml with username, leave empty if not '
                                                                'needed')
 
+parser.add_argument('--user_dict', type=str, default=None, help='user-defined keywords, leave empty if not needed')
+parser.add_argument('--regex_rules', type=str, default=None, help='table for regex rules, leave empty if not needed')
+
+
+
+def preprocess_danmaku(danmaku):
+
+    """
+    Some ad-hoc processing for danmaku with repeated patterns
+    to allow more consistent word splitting by jieba,
+    substitution rules are specified using --regex_rules
+
+    Keyword arguments:
+    danmaku -- danmaku string
+
+    Returns:
+    danmaku -- danmaku string after processing
+    """
+    if args.regex_rules is not None:
+        for line in open(args.regex_rules, 'r'):
+            line = line.strip().split()
+            assert(len(line) == 2)
+            a = danmaku
+            danmaku = re.sub(r"{}".format(line[0]), line[1], danmaku)
+
+    return danmaku
+
+
+def gen_slice_wordcount(danmaku_slices):
+
+    """
+    Count the occurence of words in each danmaku slice
+
+    Keyword arguments:
+    danmaku_slices -- slices of danmaku, each entry as a list of danmaku_string within the interval
+
+    Returns:
+    list of Counters, each Counter holds the word counts within the slice
+    """
+    return [Counter(jieba.cut(" ".join(slice))) for slice in danmaku_slices]
+
+
+def gen_idf_dict(wordcount_slices):
+
+    """
+    Generate the inverse document frequency (IDF) for all words
+    that occurs in the xml (danmaku file)
+
+    Keyword arguments:
+    wordcount_slices -- list of Counters, each Counter holds the word counts within the slice
+
+    Returns:
+    idf_list -- a dictionary with each word as the key and the IDF as the value
+    """
+    all_words = list(sum(wordcount_slices, Counter()))
+    idf_list = {}
+
+    for word in all_words:
+        idf_list[word] = math.log(len(wordcount_slices)
+                  /  (1+ sum(1 for slice in wordcount_slices if word in slice)))
+
+    return idf_list
+
+
+def gen_danmaku_slices(all_children, interval=1):
+
+    """
+    Convert the danmaku list into slices with the prespecified interval
+
+    Keyword arguments:
+    danmaku_list -- list of danmaku, each entry as (danmaku_string, timestamp)
+    interval -- length of each slice (unit: seconds)
+
+    Returns:
+    slices -- slices of danmaku, each entry as a list of danmaku_string within the interval
+    """
+    interval = int(interval)
+    final_time = get_time(all_children[-1])
+    slices = [[] for i in range(int(final_time)//int(interval) + 1)]
+
+    for child in all_children:
+        if child.tag == 'd':
+            if json.loads(child.attrib['raw'])[0][5] != 0: ### not lucky draw danmaku
+                slices[int(get_time(child))//interval].append(preprocess_danmaku(child.text))
+
+    return slices
+
+
+def get_danmaku_value(cur_danmaku, idf_list):
+
+    """
+    Get the IDF-weighted value of a given danmaku
+
+    Keyword arguments:
+    cur_danmaku -- XML element tree child
+    idf_list -- precomputed dictionary containing IDF for all keywords
+
+    Returns:
+    danmaku_value -- value of the input danmaku, calculated by summing up the IDF weights of all keywords
+    """
+    danmaku_value = 0
+    if cur_danmaku.tag == 'd':
+        if json.loads(cur_danmaku.attrib['raw'])[0][5] != 0: ### not lucky draw danmaku
+            for word in jieba.cut(preprocess_danmaku(cur_danmaku.text)):
+                danmaku_value += idf_list[word]
+
+    return danmaku_value
+
 
 def half_gaussian_filter(value, sigma):
     space = np.linspace(-4, 4, sigma * 8)
@@ -42,7 +165,7 @@ def half_gaussian_filter(value, sigma):
     return convolve(offset_value, kernel)[45:]
 
 
-def get_heat_time(all_children):
+def get_heat_time(all_children, idf_list):
     interval = 2
 
     center = 0
@@ -67,12 +190,12 @@ def get_heat_time(all_children):
         while cur_entry < len(all_children) and get_time(all_children[cur_entry]) < end:
             cur_danmaku = all_children[cur_entry]
             danmaku_queue.append(cur_danmaku)
-            cur_heat += get_value(cur_danmaku)
+            cur_heat += get_danmaku_value(cur_danmaku, idf_list)
             cur_entry += 1
 
         while len(danmaku_queue) != 0 and get_time(danmaku_queue[0]) < start:
             prev_danmaku = danmaku_queue.popleft()
-            cur_heat -= get_value(prev_danmaku)
+            cur_heat -= get_danmaku_value(prev_danmaku, idf_list)
 
         heat_time[0] += [center]
         heat_time[1] += [cur_heat]
@@ -98,13 +221,13 @@ def get_heat_time(all_children):
                 highest_idx = -1
                 he_start = -1
             else:
-                if heat_value_gaussian[i] > cur_highest:
-                    cur_highest = heat_value_gaussian[i]
+                if heat_value_gaussian[i] / np.sqrt(heat_value_gaussian2[i]) > cur_highest:
+                    cur_highest = heat_value_gaussian[i] / np.sqrt(heat_value_gaussian2[i])  ### changed to match with the graph
                     highest_idx = i
         else:
             assert he_start == -1
             if heat_value_gaussian[i] > heat_value_gaussian2[i]:
-                cur_highest = heat_value_gaussian[i]
+                cur_highest = heat_value_gaussian[i] / np.sqrt(heat_value_gaussian2[i])  ### changed to match with the graph
                 highest_idx = i
                 he_start = i
 
@@ -201,11 +324,30 @@ def draw_he_annotate_line(ax: plt.Axes, current_time: float, heat_time, he_point
         ax.axline((time, height), (time, height - 1), color='#cc79a7c0')
 
 
-def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points, he_range, current_time=-1):
+def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points, he_range, current_time=-1, sc_tuple=None):
+    # sc_tuple = (time, price, message, user, duration)
     fig = plt.figure(figsize=(16, 1), frameon=False, dpi=60)
     ax = fig.add_axes((0, 0, 1, 1))
     draw_he_area(ax, current_time, heat_time, heat_value_gaussian, heat_value_gaussian2)
     # draw_he_annotate_line(ax, current_time, heat_time, he_points)
+    if sc_tuple is not None and (len(sc_tuple) != 0):
+        height = min(heat_value_gaussian) + 0.1*(max(heat_value_gaussian)-min(heat_value_gaussian))
+        for sc in sorted(sc_tuple, key=lambda x: int(x[1])):
+            # Order the SCs by price before plotting to prevent the expensive SCs being covered by cheaper ones
+            sc_price = int(sc[1])
+            if sc_price < 50:
+                sc_color = (42,96,178)
+            elif sc_price < 100:
+                sc_color = (66, 125, 158)
+            elif sc_price < 500:
+                sc_color = (226, 181, 43)
+            elif sc_price < 1000:
+                sc_color = (224, 148, 67)
+            elif sc_price < 2000:
+                sc_color = (229, 77, 77)
+            else:
+                sc_color = (171, 26, 50)
+            plt.scatter(sc[0], height, s=75, c=[[rgb/255.0 for rgb in sc_color]])
     plt.xlim(heat_time[0][0], heat_time[0][-1])
     plt.ylim(min(heat_value_gaussian), max(heat_value_gaussian))
 
@@ -237,9 +379,34 @@ def segment_text(text):
 
 def get_danmaku_from_range(all_children, he_range):
     start, end = he_range
-    start += 45
-    end += 45
+#    start += 45
+#    end += 45
     return [item.text for item in all_children if item.tag == 'd' and start <= get_time(item) <= end]
+
+
+def find_keywords(wordcount_slices, idf_list, he_range, n_keys=3):
+
+    """
+    Identify the top keywords for a given high energy slice
+
+    Keyword arguments:
+    wordcount_slices -- list of computed heat values for all the slices
+    idf_list -- a dictionary with each word as the key and the IDF as the value
+    he_range -- (start, end) indicating one high energy range
+    n_keys -- number of keywords to output
+
+    Returns:
+    a list of top keywords in the specified high energy range
+    """
+    he_window = sum(wordcount_slices[he_range[0]:he_range[1]+1], Counter())   # Empirical offset (45s) removed
+    word_importance = {}
+    for word in he_window:
+        if word == ' ':
+            continue
+        word_importance[word] = he_window[word] * idf_list[word]
+
+    return sorted(word_importance.items(), key=operator.itemgetter(1))[-n_keys:][::-1]
+
 
 
 if __name__ == '__main__':
@@ -328,7 +495,14 @@ if __name__ == '__main__':
                 file.write(srt.compose(subtitles))
 
     if args.he_map is not None or args.graph is not None or args.he_time is not None or args.he_range:
-        heat_values = get_heat_time(xml_list)
+        if args.user_dict is not None:
+            jieba.load_userdict(args.user_dict)
+            print(f"User-defined dictionary '{args.user_dict}' loaded")
+        slices = gen_danmaku_slices(xml_list, 1)
+        wordcount_slices = gen_slice_wordcount(slices)
+        idf_list = gen_idf_dict(wordcount_slices)
+
+        heat_values = get_heat_time(xml_list, idf_list)
 
         if args.he_range is not None:
             with open(args.he_range, "w") as file:
@@ -348,9 +522,9 @@ if __name__ == '__main__':
                         element = next(xml_list_iter)
                     except StopIteration:
                         break
-                    if get_time(element) <= start + 45:
+                    if get_time(element) <= start + 0:    # Empirical offset (45s) removed
                         continue
-                    if get_time(element) > end + 45:
+                    if get_time(element) > end + 0:    # Empirical offset (45s) removed
                         break
                     if element.tag == 'd':
                         text = element.text
@@ -381,7 +555,12 @@ if __name__ == '__main__':
                 text = f"全场最高能：{convert_time(highest_time)}\t{highest_sentence}\n\n其他高能："
 
                 for i, (start_he_time, end_he_time) in enumerate(heat_values[4]):
-                    text += f"\n {convert_time(start_he_time)} - {convert_time(end_he_time)}\t{heat_comments[i]}"
+                    text += f"\n {convert_time(start_he_time)} - {convert_time(end_he_time)}\t{heat_comments[i]}\t"
+                    text += "("
+                    text += ",".join([kw for kw, value in \
+                            find_keywords(wordcount_slices, idf_list, (start_he_time, end_he_time), n_keys=3)])
+                    text += ")"
+
             text += "\n"
             text = segment_text(text)
             with open(args.he_map, "w") as file:
@@ -401,7 +580,10 @@ if __name__ == '__main__':
                 file.write(text)
 
         if args.graph is not None:
-            draw_he(args.graph, *heat_values)
+            if args.sc_list is not None or args.sc_srt is not None:
+                draw_he(args.graph, *heat_values, sc_tuple=sc_tuple)
+            else:
+                draw_he(args.graph, *heat_values)
 
     if args.user_xml is not None:
         tree = ET.parse(args.danmaku)
