@@ -47,8 +47,10 @@ parser.add_argument('--he_range', type=str, default=None, help='output he_range,
 parser.add_argument('--user_xml', type=str, default=None, help='output danmaku xml with username, leave empty if not '
                                                                'needed')
 
-parser.add_argument('--user_dict', type=str, default=None, help='user-defined keywords, leave empty if not needed')
-parser.add_argument('--regex_rules', type=str, default=None, help='table for regex rules, leave empty if not needed')
+parser.add_argument('--user_dict', type=str, default=None, help='[for he label generation] user-defined keywords, '
+                                                                'leave empty if not needed')
+parser.add_argument('--regex_rules', type=str, default=None, help='[for he label generation] table for regex rules, '
+                                                                  'leave empty if not needed')
 
 
 
