@@ -32,7 +32,6 @@ import math
 import re
 import operator
 
-import bilibili_api
 from textrank4zh import TextRank4Sentence
 from tqdm import tqdm
 
@@ -594,6 +593,7 @@ if __name__ == '__main__':
             if user_id in user_cache:
                 return user_cache[user_id]
             else:
+                import bilibili_api
                 user_follower = bilibili_api.user.get_relation_info(user_id)['follower']
                 user_cache[user_id] = user_follower
                 return user_follower
