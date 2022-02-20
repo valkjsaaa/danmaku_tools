@@ -533,7 +533,7 @@ if __name__ == '__main__':
                 if len(comment_list) > 1000:
                     comment_list = random.sample(comment_list, 1000)
                 tr4s.analyze("\n".join(comment_list), lower=True, source='no_filter')
-                key_sentences = tr4s.get_key_sentences(1)
+                key_sentences = tr4s.get_key_sentences(num=1, sentence_min_len=1)
                 if len(key_sentences) > 0:
                     top_sentence = key_sentences[0]['sentence']
                 else:
