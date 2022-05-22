@@ -42,12 +42,12 @@ if __name__ == '__main__':
     tree = ET.parse(args.xml_files[0])
     root = tree.getroot()
     new_root_offset = 0
-    root_time = get_root_time(root)
     all_flv = ""
 
     for i in range(len(args.xml_files) - 1):
         new_root = ET.parse(args.xml_files[i + 1]).getroot()
         if args.video_time == "":
+            root_time = get_root_time(root)
             new_root_offset = (get_root_time(new_root) - root_time).total_seconds()
         else:
             prev_xml_path = args.xml_files[i]
