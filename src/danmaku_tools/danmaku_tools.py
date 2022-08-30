@@ -6,7 +6,7 @@ def read_danmaku_file(file_path, guard=False):
     tree = ET.parse(file_path)
     root = tree.getroot()
 
-    all_children = [child for child in root if child.tag in ['gift', 'sc', 'd'] + (['guard'] if guard else [])]
+    all_children = [child for child in root if child.tag in ['gift', 'sc', 'd'] + (['guard'] if guard else []) and child.text is not None]
     return all_children
 
 
