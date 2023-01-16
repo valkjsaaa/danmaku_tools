@@ -4,5 +4,4 @@ scipy~=1.7.2
 python-dateutil~=2.8.1
 srt~=3.4.1
 tqdm~=4.53.0
-networkx==2.8.8
-textrank4zh~=0.3
+git+https://github.com/valkjsaaa/TextRank4ZH.git@c4613c21d5464ca5ed7c3add7ba72e3d58d00b0b
