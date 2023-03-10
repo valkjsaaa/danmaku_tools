@@ -73,7 +73,8 @@ def preprocess_danmaku(danmaku):
             assert(len(line) == 2)
             a = danmaku
             danmaku = re.sub(r"{}".format(line[0]), line[1], danmaku)
-
+    if danmaku == None:
+        danmaku = ""
     return danmaku
 
 
