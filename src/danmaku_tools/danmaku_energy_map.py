@@ -413,7 +413,7 @@ def find_keywords(wordcount_slices, idf_list, he_range, n_keys=3):
 
 
 if __name__ == '__main__':
-
+    args = parser.parse_args()
     xml_list = read_danmaku_file(args.danmaku)
 
     if args.sc_list is not None or args.sc_srt is not None:
