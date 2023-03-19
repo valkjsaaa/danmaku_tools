@@ -68,12 +68,13 @@ def preprocess_danmaku(danmaku):
     danmaku -- danmaku string after processing
     """
     if args.regex_rules is not None:
-        for line in open(args.regex_rules, 'r'):
+        for line in open(args.regex_rules, 'r', encoding='utf-8'):
             line = line.strip().split()
             assert(len(line) == 2)
             a = danmaku
             danmaku = re.sub(r"{}".format(line[0]), line[1], danmaku)
-
+    if danmaku == None:
+        danmaku = ""
     return danmaku
 
 
@@ -127,12 +128,13 @@ def gen_danmaku_slices(all_children, interval=1):
     """
     interval = int(interval)
     final_time = get_time(all_children[-1])
-    slices = [[] for i in range(int(final_time)//int(interval) + 1)]
+    slices = [[] for i in range(int(final_time)//int(interval) + 3)]
 
     for child in all_children:
         if child.tag == 'd':
             if json.loads(child.attrib['raw'])[0][5] != 0: ### not lucky draw danmaku
-                slices[int(get_time(child))//interval].append(preprocess_danmaku(child.text))
+                if int(get_time(child))//interval < len(slices):
+                    slices[int(get_time(child))//interval].append(preprocess_danmaku(child.text))
 
     return slices
 
@@ -439,7 +441,7 @@ if __name__ == '__main__':
                 sc_text = segment_text(sc_text)
             else:
                 sc_text = "没有醒目留言..."
-            with open(args.sc_list, "w") as file:
+            with open(args.sc_list, "w", encoding="utf-8") as file:
                 file.write(sc_text)
         if args.sc_srt is not None:
             active_sc = []
@@ -492,7 +494,7 @@ if __name__ == '__main__':
                 end_time = max([sc[1] for sc in active_sc])
                 _, new_subtitles, _ = flush_sc(start_time=cur_time, end_time=end_time)
                 subtitles += new_subtitles
-            with open(args.sc_srt, "w") as file:
+            with open(args.sc_srt, "w", encoding="utf-8") as file:
                 file.write(srt.compose(subtitles))
 
     if args.he_map is not None or args.graph is not None or args.he_time is not None or args.he_range:
@@ -506,7 +508,7 @@ if __name__ == '__main__':
         heat_values = get_heat_time(xml_list, idf_list)
 
         if args.he_range is not None:
-            with open(args.he_range, "w") as file:
+            with open(args.he_range, "w", encoding='utf-8') as file:
                 json.dump(heat_values[4], file)
 
         if args.he_map is not None:
@@ -564,7 +566,7 @@ if __name__ == '__main__':
 
             text += "\n"
             text = segment_text(text)
-            with open(args.he_map, "w") as file:
+            with open(args.he_map, "w", encoding='utf-8') as file:
                 file.write(text)
 
         if args.he_time is not None:
@@ -577,7 +579,7 @@ if __name__ == '__main__':
                 highest_time_id = he_pairs[0][np.argmax(he_pairs[1])]
                 highest_time = all_timestamps[highest_time_id]
                 text = str(highest_time)
-            with open(args.he_time, "w") as file:
+            with open(args.he_time, "w", encoding='utf-8') as file:
                 file.write(text)
 
         if args.graph is not None:
