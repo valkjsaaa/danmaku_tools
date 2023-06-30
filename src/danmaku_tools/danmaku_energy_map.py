@@ -38,6 +38,7 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser(description='Process bilibili Danmaku')
 parser.add_argument('danmaku', type=str, help='path to the danmaku file')
 parser.add_argument('--graph', type=str, default=None, help='output graph path, leave empty if not needed')
+parser.add_argument('--graph_dpi', type=int, default=60, help='output graph dpi, default is 60')
 parser.add_argument('--he_map', type=str, default=None, help='output high density timestamp, leave empty if not needed')
 parser.add_argument('--sc_list', type=str, default=None, help='output super chats, leave empty if not needed')
 parser.add_argument('--sc_srt', type=str, default=None, help='output super chats srt, leave empty if not needed')
@@ -327,9 +328,9 @@ def draw_he_annotate_line(ax: plt.Axes, current_time: float, heat_time, he_point
         ax.axline((time, height), (time, height - 1), color='#cc79a7c0')
 
 
-def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points, he_range, current_time=-1, sc_tuple=None):
+def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points, he_range, current_time=-1, sc_tuple=None, dpi=60):
     # sc_tuple = (time, price, message, user, duration)
-    fig = plt.figure(figsize=(16, 1), frameon=False, dpi=60)
+    fig = plt.figure(figsize=(16, 1), frameon=False, dpi=dpi)
     ax = fig.add_axes((0, 0, 1, 1))
     draw_he_area(ax, current_time, heat_time, heat_value_gaussian, heat_value_gaussian2)
     # draw_he_annotate_line(ax, current_time, heat_time, he_points)
@@ -584,9 +585,9 @@ if __name__ == '__main__':
 
         if args.graph is not None:
             if args.sc_list is not None or args.sc_srt is not None:
-                draw_he(args.graph, *heat_values, sc_tuple=sc_tuple)
+                draw_he(args.graph, *heat_values, sc_tuple=sc_tuple, dpi=args.graph_dpi)
             else:
-                draw_he(args.graph, *heat_values)
+                draw_he(args.graph, *heat_values, dpi=args.graph_dpi)
 
     if args.user_xml is not None:
         tree = ET.parse(args.danmaku)
