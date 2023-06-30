@@ -44,6 +44,11 @@ if __name__ == '__main__':
     new_root_offset = 0
     # all_flv = ""
 
+    for child in root.childNodes:
+        if child.nodeType == DOM.Node.TEXT_NODE:
+            # Remove <DOM Text node "'\n  '">
+            root.removeChild(child)
+
     for i in range(len(args.xml_files) - 1):
         new_root = DOM.parse(args.xml_files[i + 1]).documentElement
         if args.video_time == "":
@@ -62,4 +67,4 @@ if __name__ == '__main__':
         add_root(root, new_root, new_root_offset)
 
     with open(args.output, 'w', encoding='utf-8') as f:
-        doc.writexml(f, indent='', addindent='', newl='', encoding="utf-8")
+        doc.writexml(f, indent='', addindent='\t', newl='\n', encoding="utf-8")
