@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import xml.dom.minidom as DOM
 from dateutil.parser import parse
+from xml.parsers.expat import ExpatError
 
 parser = argparse.ArgumentParser(description='Merge BiliLiveReocrder XML')
 parser.add_argument('xml_files', type=str, nargs='+', help='path to the danmaku file')
@@ -39,7 +40,13 @@ if __name__ == '__main__':
     if len(args.xml_files) == 0:
         print("At least one XML files have to be passed as input.")
 
-    doc = DOM.parse(args.xml_files[0])
+    try:
+        doc = DOM.parse(args.xml_files[0])
+    except ExpatError:
+        with open(args.xml_files[0], encoding='utf-8') as f:
+            args.xml_files = f.read().replace('"', '').split()
+        doc = DOM.parse(args.xml_files[0])
+
     root = doc.documentElement
     new_root_offset = 0
     # all_flv = ""
