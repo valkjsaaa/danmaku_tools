@@ -76,7 +76,7 @@ if __name__ == '__main__':
     except ExpatError:
         # Read concat file
         with open(args.xml_files[0], encoding='utf-8') as f:
-            args.xml_files = f.read().replace('"', '').split()
+            args.xml_files = f.read().replace('"', '').split('\n')
         doc = DOM.parse(args.xml_files[0])
 
     root = doc.documentElement
