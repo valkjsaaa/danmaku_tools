@@ -40,8 +40,8 @@ parser.add_argument('danmaku', type=str, help='path to the danmaku file')
 parser.add_argument('--graph', type=str, default=None, help='output graph path, leave empty if not needed')
 parser.add_argument('--graph_figsize', nargs=2, type=int, default=(16, 1), help='output graph figsize, default is (16, 1)')
 parser.add_argument('--graph_dpi', type=int, default=60, help='output graph dpi, default is 60')
-parser.add_argument('--graph_heat_color', type=str, default='#e69f00', help='output graph heat color, default is #e69f00')
-parser.add_argument('--graph_normal_color', type=str, default='#f0e442', help='output graph normal color, default is #f0e442')
+parser.add_argument('--graph_heat_color', type=str, default='e69f00', help='output graph heat color hex, default is e69f00')
+parser.add_argument('--graph_normal_color', type=str, default='f0e442', help='output graph normal color hex, default is f0e442')
 parser.add_argument('--he_map', type=str, default=None, help='output high density timestamp, leave empty if not needed')
 parser.add_argument('--sc_list', type=str, default=None, help='output super chats, leave empty if not needed')
 parser.add_argument('--sc_srt', type=str, default=None, help='output super chats srt, leave empty if not needed')
@@ -260,7 +260,7 @@ def draw_he_line(ax: plt.Axes, heat_time, heat_value_gaussian, heat_value_gaussi
 
 
 def draw_he_area(ax: plt.Axes, current_time: float, heat_time, heat_value_gaussian, heat_value_gaussian2, name='all',
-                 heat_color='#e69f00', normal_color='#f0e442', no_average=False):
+                 heat_color='e69f00', normal_color='f0e442', no_average=False):
     total_len = len(heat_time[0])
     change_pos_list = [0]
     low_area_begin_pos_list = []
@@ -286,7 +286,7 @@ def draw_he_area(ax: plt.Axes, current_time: float, heat_time, heat_value_gaussi
         if end_pos < total_len - 1:
             end_pos += 1
         if current_time <= begin_pos:
-            ax.fill_between(heat_time[0][begin_pos:end_pos], heat_value_gaussian[begin_pos:end_pos], color=f"{normal_color}c0",
+            ax.fill_between(heat_time[0][begin_pos:end_pos], heat_value_gaussian[begin_pos:end_pos], color=f"#{normal_color}c0",
                             edgecolor="none")
         elif current_time > end_pos:
             ax.fill_between(heat_time[0][begin_pos:end_pos], heat_value_gaussian[begin_pos:end_pos], color="#999999c0",
@@ -295,7 +295,7 @@ def draw_he_area(ax: plt.Axes, current_time: float, heat_time, heat_value_gaussi
             ax.fill_between(heat_time[0][begin_pos:current_time], heat_value_gaussian[begin_pos:current_time],
                             color="#999999c0", edgecolor="none")
             ax.fill_between(heat_time[0][current_time:end_pos], heat_value_gaussian[current_time:end_pos],
-                            color=f"{normal_color}c0", edgecolor="none")
+                            color=f"#{normal_color}c0", edgecolor="none")
     if not no_average:
         for begin_pos_i in high_area_begin_pos_list:
             begin_pos = change_pos_list[begin_pos_i]
@@ -304,7 +304,7 @@ def draw_he_area(ax: plt.Axes, current_time: float, heat_time, heat_value_gaussi
                 end_pos += 1
             if current_time <= begin_pos:
                 ax.fill_between(heat_time[0][begin_pos:end_pos], heat_value_gaussian[begin_pos:end_pos],
-                                color=f"{heat_color}c0", edgecolor="none")
+                                color=f"#{heat_color}c0", edgecolor="none")
             elif current_time > end_pos:
                 ax.fill_between(heat_time[0][begin_pos:end_pos], heat_value_gaussian[begin_pos:end_pos],
                                 color="#737373c0", edgecolor="none")
@@ -312,7 +312,7 @@ def draw_he_area(ax: plt.Axes, current_time: float, heat_time, heat_value_gaussi
                 ax.fill_between(heat_time[0][begin_pos:current_time], heat_value_gaussian[begin_pos:current_time],
                                 color="#737373c0", edgecolor="none")
                 ax.fill_between(heat_time[0][current_time:end_pos], heat_value_gaussian[current_time:end_pos],
-                                color=f"{heat_color}c0", edgecolor="none")
+                                color=f"#{heat_color}c0", edgecolor="none")
 
 
 def draw_he_annotate(ax: plt.Axes, heat_time, he_points):
@@ -332,7 +332,7 @@ def draw_he_annotate_line(ax: plt.Axes, current_time: float, heat_time, he_point
 
 
 def draw_he(he_graph, heat_time, heat_value_gaussian, heat_value_gaussian2, he_points, he_range, current_time=-1, sc_tuple=None,
-            figsize=(16, 1), dpi=60, heat_color='#e69f00', normal_color='#f0e442'):
+            figsize=(16, 1), dpi=60, heat_color='e69f00', normal_color='f0e442'):
     # sc_tuple = (time, price, message, user, duration)
     fig = plt.figure(figsize=figsize, frameon=False, dpi=dpi)
     ax = fig.add_axes((0, 0, 1, 1))
